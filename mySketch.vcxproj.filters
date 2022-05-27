@@ -46,6 +46,9 @@
     <ClCompile Include="src\Squiggle.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\MultiSquig.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -107,8 +110,15 @@
     <ClInclude Include="src\Squiggle.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\MultiSquig.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="icon.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+    <None Include=".gitignore" />
   </ItemGroup>
 </Project>

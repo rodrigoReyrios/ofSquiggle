@@ -1,17 +1,19 @@
 #include "ofApp.h"
 #include <iostream>
 #include <vector>
-using namespace std;
 
-//initalize vector of x and y locations to draw grid lines
-std::vector<float> gridx;
-std::vector<float> gridy;
+//initalize a temporary path which is a vector of points
+vector<ofVec3f> temp_path;
 
 //--------------------------------------------------------------
 void ofApp::setup(){
+	//set background color
+	ofSetBackgroundColor(0, 0, 0);
+	//set fps
+	ofSetFrameRate(35);
 	//set the window size variables and make the window
-	windowx = 800.0f;
-	windowy = 800.0f;
+	windowx = 900.0f;
+	windowy = 900.0f;
 	//set the cell size
 	ell = 200.0f;
 	//calculate how many cells I have across x and y
@@ -26,25 +28,56 @@ void ofApp::setup(){
 	//print function to see how many cells are where
 	std::printf("number of x cells: %i\n",celli_x);
 	std::printf("number of y cells: %i\n", celli_y);
-	//setup the squiggle, this populates the points for now
-	ofVec3f cent(windowx / 2, windowy / 2, 0.0);
-	S.setup(200,200.0f,cent);
 }
+
+//make an integer that stores the last size of wholepaths
+int lastpaths = 0;
 
 //--------------------------------------------------------------
 void ofApp::update(){
-	//calculate grid drawing values
-	calcGrid();
-	//update the squiggle
-	S.update();
+	
+	//only update polys, when weve detected an additional path in whole paths
+	if (wholepaths.size() != lastpaths) {
+		//as wholepaths get updated I want to send any currently completed paths polys
+		for (int i = lastpaths; i < wholepaths.size(); i++)
+		{
+			//initalize a polyline
+			ofPolyline curve;
+			//look over the points contained in this whole paths
+			for (int j = 0; j < wholepaths[i].size(); j++)
+			{
+				curve.addVertex(wholepaths[i][j]);
+			}
+			//now that the curve is made add it to the polys vector
+			polys.push_back(curve);
+		}
+		//reset size of last paths
+		lastpaths = wholepaths.size();
+	}
+
+	//update all the Multisquigs objects
+	for (int i = 0; i < MS.size(); i++)
+	{
+		MS[i].update();
+	}
+
 }
 
+int imgnum = 0;
 //--------------------------------------------------------------
 void ofApp::draw(){
-	//draw the grid
-	drawGrid();
-	//draw the squiggle
-	S.draw();
+
+	//draw all the Multisquigs objects
+	for (int i = 0; i < MS.size(); i++)
+	{
+		MS[i].draw();
+	}
+
+	string filename;
+	filename = "screen/screen" + ofToString(imgnum) + ".png";
+	ofSaveScreen(filename);
+	imgnum++;
+
 }
 
 //--------------------------------------------------------------
@@ -64,16 +97,26 @@ void ofApp::mouseMoved(int x, int y ){
 
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button){
-
+	//when a mouse is pressed make a point and add it to the temporary path
+	ofVec3f p(x, y,0);
+	temp_path.push_back(p);
 }
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button){
-
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseReleased(int x, int y, int button){
+	//once the mouse is released I want to send the temp path to the allPaths vector
+	wholepaths.push_back(temp_path);
+	//I also want to construct a Multisquig and then send it to MS vector
+	MultiSquig ms;
+	//make sure to setup with the remade path
+	ms.setup( reformat(temp_path,15) , 100.0f, 150);
+	MS.push_back(ms);
+	//and reset the temp_path
+	temp_path.clear();
 
 }
 
@@ -102,35 +145,38 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 
 }
 
-//custom method to draw grid lines based on contents of gridx and gridy
-void ofApp::drawGrid() {
-	//loop over gridx and gridy to actualy draw the grid lines
-	for (int i = 0; i < gridx.size(); i++)
+//function to reformat a path that is to sporadic
+vector<ofVec3f> ofApp::reformat(vector<ofVec3f> oldpath, float ellprime) {
+	//make a new vector
+	vector<ofVec3f> newpath;
+	for (int i = 0; i < oldpath.size()-1; i++)
 	{
-		//these are verticle lines
-		ofDrawLine(gridx[i], 0, gridx[i], windowy);
+		//get this point and the next point
+		ofVec3f pthis = oldpath[i];
+		ofVec3f pnext = oldpath[i+1];
+		//add the first point to the newpath
+		newpath.push_back(pthis);
+		//get the vector between these
+		ofVec3f dp = pnext - pthis;
+		//get the unit of the diffrence
+		ofVec3f dpunit = dp.getNormalized();
+		//get the length of the diffrence between these two points
+		float ell = (dp).length();
+		//when the distance between these points is to far
+		if (ell > ellprime) {
+			//calculate how many cuts there needs to be
+			int cutnum = floor((ell / ellprime) - 1);
+			for (int j = 0; j < cutnum; j++)
+			{
+				//add a new point
+				newpath.push_back(pthis+( (j+1)*ellprime*dpunit ) );
+			}
+		}
+		else if (ell < ellprime/2) {
+			//when the next path is to close just skip
+			i += 1;
+		}
 	}
-	for (int i = 0; i < gridy.size(); i++)
-	{
-		//these are horizontal lines
-		ofDrawLine(0, gridy[i], windowx, gridy[i]);
-	}
-	//since the above only realy draws the left most grid lines i need to also draw one extra, this is going simply with gridx[-1]+ell and gridy[-1]+ell
-	ofDrawLine(gridx.back() + ell, 0.0f, gridx.back() + ell, windowy);
-	ofDrawLine(0, gridy.back() + ell, windowx, gridy.back() + ell);
-}
-
-void ofApp::calcGrid() {
-	//use the cell size and number of cells along x and y to calcuate the xs and ys of the cell
-	for (int i = 0; i < celli_x; i++) {
-		//here i need to add multiples of ell as x coordinates for verticle grid lines
-		gridx.push_back(ell*i);
-	}
-
-	for (int i = 0; i < celli_y; i++)
-	{
-		//here i need to add multiples of ell as y coordinates for the horizontal grid lines
-		gridy.push_back(ell*i);
-	}
-	//now gridx and gridy each have the left side coordinate of a cell
+	//return the new path
+	return newpath;
 }

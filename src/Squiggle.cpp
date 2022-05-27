@@ -22,8 +22,7 @@ void Squiggle::setup( int d = 100, float rad = 100.0f, ofVec2f cent_ = ofVec3f(5
 	//now Points is populated with ofVec2's having <r,\theta>
 	//make sure to set the cent variable
 	cent = cent_;
-	//setup the seed
-	//srand(100);
+	cent_orig = cent_;
 
 }
 
@@ -31,23 +30,8 @@ void Squiggle::setup( int d = 100, float rad = 100.0f, ofVec2f cent_ = ofVec3f(5
 void Squiggle::update() {
 	//to start clear the points
 	perim.clear();
-	//add the points to the polyline object
-	for (int i = 0; i < Points.size(); i++)
-	{
-		//get this point and 4 points next to it
-		ofVec2f vi = Points[i];
-		ofVec2f v_m1 = Points[(i-1)% Points.size()];
-		ofVec2f v_m2 = Points[(i - 2) % Points.size()];
-		ofVec2f v_p1 = Points[(i + 1) % Points.size()];
-		ofVec2f v_p2 = Points[(i + 2) % Points.size()];
-		//get average r as the average of the 4 points next to this point
-		float r_mu = (v_m1.x+v_m2.x+v_p1.x+v_p2.x)/4;
-		//here is kind of a pseudo ornstein-uhrbek process
-		Points[i].x += ((r_mu - vi.x)*1.5) + (1.0*NextGaussian());
-		//now add to the perim in <x,y> form and offset by the cent
-		perim.addVertex(ofVec3f(Points[i].x*cos(Points[i].y), Points[i].x*sin(Points[i].y),0.0f)+cent);
-	}
-
+	//add the points to the polyline object while altering them slightly
+	PointsToPerim();
 	//close the polyline
 	perim.close();
 }
@@ -58,7 +42,6 @@ void Squiggle::draw() {
 	perim.draw();
 }
 
-
 float Squiggle::NextGaussian()
 {
 	std::random_device rd;
@@ -67,3 +50,26 @@ float Squiggle::NextGaussian()
 	return distribution(mt);
 }
 
+//function to send points to perim and add the AR(1) noise
+void Squiggle::PointsToPerim() {
+	//add the points to the polyline object
+	for (int i = 0; i < Points.size(); i++)
+	{
+		//get this point and 4 points next to it
+		ofVec2f vi = Points[i];
+		ofVec2f v_m1 = Points[(i - 1) % Points.size()];
+		ofVec2f v_m2 = Points[(i - 2) % Points.size()];
+		ofVec2f v_p1 = Points[(i + 1) % Points.size()];
+		ofVec2f v_p2 = Points[(i + 2) % Points.size()];
+		//get average r as the average of the 4 points next to this point
+		//float r_mu = (v_m1.x + v_m2.x + v_p1.x + v_p2.x) / 4;
+		float r_mu = (v_m1.x  + v_p1.x ) / 2;
+		//here is kind of a pseudo ornstein-uhrbek process that updates the radius
+		Points[i].x += ((r_mu - vi.x)*1.3) + (1.25*NextGaussian());
+		//the cool thing here is that this random process tends to stay around the mean
+		//in this case a point on average traverses to the average radius of the points around it
+		//this gives the effect of a point wigling randomly and the other points wiggle in response
+		//now add to the perim in <x,y> form and offset by the cent
+		perim.addVertex(ofVec3f(Points[i].x*cos(Points[i].y), Points[i].x*sin(Points[i].y), 0.0f) + cent);
+	}
+}

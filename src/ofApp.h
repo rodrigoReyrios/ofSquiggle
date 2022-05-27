@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ofMain.h"
-#include "Squiggle.h"
+#include "MultiSquig.h"
 class ofApp : public ofBaseApp{
 
 	public:
@@ -27,9 +27,12 @@ class ofApp : public ofBaseApp{
 		float ell;
 		int celli_x;
 		int celli_y;
-		//a single squiggle instans
-		Squiggle S;
-		//and declare some custom methods
-		void drawGrid();
-		void calcGrid();
+		//a temporary vector to store vectors of points
+		vector<vector<ofVec3f>> wholepaths;
+		//make a vector of Polylines that eventualy get drawn
+		vector<ofPolyline> polys;
+		//make a vector of MultiSquigs
+		vector<MultiSquig> MS;
+		vector<ofVec3f> reformat(vector<ofVec3f>, float);
 };
+
