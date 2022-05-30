@@ -5,20 +5,23 @@
 class Squiggle
 {
 public:
-	//squiggle class should have its points
-	vector<ofVec2f> Points;
-	//it should aliso have a polyline object that is going to be updated with Points before drawing
-	ofPolyline perim;
-	ofVec3f cent;
-	ofVec3f cent_orig;
-	//squiggle should have a constructor
+	//constrructor
 	Squiggle();
-	//were going to treat squiggle objects like openframeworks methods, each should have a setup, update, and draw method
-	void setup(int,float,ofVec2f);
+	//squiggle class should have its points
+	vector<ofVec3f> Points;
+	//squiggle should have a polyline
+	ofPolyline poly;
+	//constants that scale the term before mu-r and the variance of the gaussain
+	float D, sig;
+	//squiggle keeps its origian lradius
+	float rad_orig;
+	//vector of the suiggle center
+	ofVec3f cent;
+	//and basic stup, update, draw functions
+	void setup(float, float, float, float, float, float);
 	void update();
 	void draw();
-	//this function is meant to return a normaly draw value
+	//draw a number from a guassian
 	float NextGaussian();
-	void PointsToPerim();
 };
 

@@ -2,181 +2,190 @@
 #include <iostream>
 #include <vector>
 
-//initalize a temporary path which is a vector of points
-vector<ofVec3f> temp_path;
 
 //--------------------------------------------------------------
 void ofApp::setup(){
-	//set background color
-	ofSetBackgroundColor(0, 0, 0);
 	//set fps
-	ofSetFrameRate(35);
-	//set the window size variables and make the window
-	windowx = 900.0f;
-	windowy = 900.0f;
-	//set the cell size
-	ell = 200.0f;
-	//calculate how many cells I have across x and y
-	celli_x = ceil(windowx / ell);
-	celli_y = ceil(windowy / ell);
-	//when there are incomplete cells I need to make sure to expand the window apropriatley
-	windowx = celli_x * ell;
-	windowy = celli_y * ell;
-	//now the window expands to fit incomplete cells even if theres not enought room
-	//add a little bit of padding to see right most grid lines
-	ofSetWindowShape(windowx + 10, windowy + 10);
-	//print function to see how many cells are where
-	std::printf("number of x cells: %i\n",celli_x);
-	std::printf("number of y cells: %i\n", celli_y);
+	ofSetFrameRate(25);
+	//set vsync
+	ofSetVerticalSync(true);
+	//set the bg
+	ofSetBackgroundColor(0.0f, 0.0f, 0.0f);
+	//setuo gui
+	gui.setup();
+	//add elements to the gui
+	gui.add(radius_slider.setup("radius", 140, 10, 300));
+	gui.add(res.setup("arc dist", 10, 0.1, 100));
+	gui.add(var.setup("variance", 2, 0.1, 5.0));
+	gui.add(theta.setup("theta", 5, 0.1, 10.0));
+	gui.add(spacing.setup("spacing", 25, 1, 100.0));
+	gui.add(rfac2.setup("Perspecitve",false));
+	gui.add(pause.setup("Pause", true));
+	//panel should show
+	hidepanel = false;
+	//by default mouse is not in deleting mode
+	isDeleting = false;
+	//set frame num value
+	fnum = 0;
+	//boolean for frame saving
+	recording = false;
+
+	//setup the temp squiggle 
+	temp_S.setup(res, radius_slider, var, theta, mouseX, mouseY);
 }
 
-//make an integer that stores the last size of wholepaths
-int lastpaths = 0;
+float persp(float r) {
+	float nw = ofMap(r, 0.0f, ofGetScreenHeight(), 0.3f, 1.0f);
+	return nw;
+}
 
 //--------------------------------------------------------------
 void ofApp::update(){
-	
-	//only update polys, when weve detected an additional path in whole paths
-	if (wholepaths.size() != lastpaths) {
-		//as wholepaths get updated I want to send any currently completed paths polys
-		for (int i = lastpaths; i < wholepaths.size(); i++)
-		{
-			//initalize a polyline
-			ofPolyline curve;
-			//look over the points contained in this whole paths
-			for (int j = 0; j < wholepaths[i].size(); j++)
-			{
-				curve.addVertex(wholepaths[i][j]);
-			}
-			//now that the curve is made add it to the polys vector
-			polys.push_back(curve);
-		}
-		//reset size of last paths
-		lastpaths = wholepaths.size();
+	if (!pause) {
+		//update all the squiggles
+		MS.update();
 	}
 
-	//update all the Multisquigs objects
-	for (int i = 0; i < MS.size(); i++)
+	//save the frames if desired
+	if (recording)
 	{
-		MS[i].update();
+		ofSaveScreen("screen/"+std::to_string(fnum) + ".png");
+		fnum += 1;
 	}
 
+	//remkae the temp path via resample by spacing
+	if (temp_path.size() > 1) {
+		temp_path = temp_path.getResampledBySpacing(spacing);
+	}
+
+	//setup the temp_squiggle with current paramaters
+	//the radius needs to be scaled aproproetly if using perspective mode
+	if (rfac2) {
+		//setup the squiggle with the current paramaters
+		temp_S.setup(res, persp(mouseY)*radius_slider , var, theta, mouseX, mouseY );
+		//update the squiggle once
+		temp_S.update();
+	}
+	else {
+		//setup the squiggle with the current paramaters
+		temp_S.setup(res,radius_slider,var,theta,mouseX,mouseY);
+		//update the squiggle once
+		temp_S.update();
+	}
 }
 
-int imgnum = 0;
 //--------------------------------------------------------------
 void ofApp::draw(){
-
-	//draw all the Multisquigs objects
-	for (int i = 0; i < MS.size(); i++)
-	{
-		MS[i].draw();
+	// should the gui control hiding?
+	if (!hidepanel) {
+		gui.draw();
 	}
 
-	string filename;
-	filename = "screen/screen" + ofToString(imgnum) + ".png";
-	ofSaveScreen(filename);
-	imgnum++;
+	//based on is deleting color cursor differently
+	if (!isDeleting) {
+		ofSetColor(255, 255, 255, 255.0/3);
+	}
+	else {
+		ofSetColor(255, 0, 0, 255.0/3);
+	}
+	ofDrawCircle(ofVec2f(mouseX, mouseY), 10);
+
+	temp_path.draw();
+
+	//draw circles on vertices of temp path
+	for (int i = 0; i < temp_path.size(); i++)
+	{
+		ofDrawCircle(temp_path[i], 10);
+	}
+
+	if (!isDeleting) {
+		temp_S.draw();
+	}
+
+	//draw any squiggles
+	MS.draw();
 
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
+	if (key == 'h') {
+		hidepanel = !hidepanel;
+	}
+
+	if (key == 'd') {
+		isDeleting = !isDeleting;
+	}
+
+	if (key == 's') {
+		recording = !recording;
+	}
 
 }
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key){
-
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseMoved(int x, int y ){
-
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button){
-	//when a mouse is pressed make a point and add it to the temporary path
-	ofVec3f p(x, y,0);
-	temp_path.push_back(p);
+	//when the mouse is dragged add to the temp_path polyline
+	temp_path.addVertex(ofVec3f(x,y,0.0f) );
 }
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button){
+	//when the mouse is pressed add to the temp_path polyline
+	temp_path.addVertex(ofVec3f(x,y,0.0f));
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseReleased(int x, int y, int button){
-	//once the mouse is released I want to send the temp path to the allPaths vector
-	wholepaths.push_back(temp_path);
-	//I also want to construct a Multisquig and then send it to MS vector
-	MultiSquig ms;
-	//make sure to setup with the remade path
-	ms.setup( reformat(temp_path,15) , 100.0f, 150);
-	MS.push_back(ms);
-	//and reset the temp_path
+	if (!isDeleting) {
+		//get the list of radius scaled by y coordinate in temp_path
+		vector<float> rs;
+		for (int i = 0; i < temp_path.size(); i++)
+		{
+			//convert the y coordinate into a scaler
+			float rmod = persp(temp_path[i].y);
+			rs.push_back(rmod);
+		}
+		//if were doing perspective send the rmod vector into the added squiggles
+		if (rfac2) {
+			MS.AddSquiggles(res, rs ,radius_slider, var, theta, temp_path);
+		}
+		else {
+			MS.AddSquiggles(res, radius_slider, var, theta, temp_path);
+		}
+	}
+	else {
+		MS.DeleteSquiggles(temp_path);
+	}
+	//clear the polyline
 	temp_path.clear();
-
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseEntered(int x, int y){
-
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseExited(int x, int y){
-
 }
 
 //--------------------------------------------------------------
 void ofApp::windowResized(int w, int h){
-
 }
 
 //--------------------------------------------------------------
 void ofApp::gotMessage(ofMessage msg){
-
 }
 
 //--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
-
+void ofApp::dragEvent(ofDragInfo dragInfo){
 }
 
-//function to reformat a path that is to sporadic
-vector<ofVec3f> ofApp::reformat(vector<ofVec3f> oldpath, float ellprime) {
-	//make a new vector
-	vector<ofVec3f> newpath;
-	for (int i = 0; i < oldpath.size()-1; i++)
-	{
-		//get this point and the next point
-		ofVec3f pthis = oldpath[i];
-		ofVec3f pnext = oldpath[i+1];
-		//add the first point to the newpath
-		newpath.push_back(pthis);
-		//get the vector between these
-		ofVec3f dp = pnext - pthis;
-		//get the unit of the diffrence
-		ofVec3f dpunit = dp.getNormalized();
-		//get the length of the diffrence between these two points
-		float ell = (dp).length();
-		//when the distance between these points is to far
-		if (ell > ellprime) {
-			//calculate how many cuts there needs to be
-			int cutnum = floor((ell / ellprime) - 1);
-			for (int j = 0; j < cutnum; j++)
-			{
-				//add a new point
-				newpath.push_back(pthis+( (j+1)*ellprime*dpunit ) );
-			}
-		}
-		else if (ell < ellprime/2) {
-			//when the next path is to close just skip
-			i += 1;
-		}
-	}
-	//return the new path
-	return newpath;
-}

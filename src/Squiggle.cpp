@@ -6,41 +6,91 @@ Squiggle::Squiggle() {
 }
 
 //define a setup function
-void Squiggle::setup( int d = 100, float rad = 100.0f, ofVec2f cent_ = ofVec3f(50.,50.,0.0)) {
-	//I need to populate points
-	//initaly points are populated based on a discretized circle
-	//get d angles that span (0,2pi)
-	float dtheta = TWO_PI / d;
-	float theta_i = 0.0f;
-	while (theta_i < TWO_PI) {
-		//i dont actualy want to store <x,y> points i want to store <r,\theta> points
-		ofVec2f vi(rad,theta_i);
-		//ill convert these back into <x,y>'s before using them in drawing
-		Points.push_back(vi);
-		theta_i += dtheta;
+void Squiggle::setup(float d,float rad,float random, float diff, float x, float y) {
+	
+	Points.clear();
+	
+	//squiggle knows the distance between points at setup and radius
+	//use thes to calculate the number of vertices squiggle should have
+	int vnum = floor((2* PI*rad)/d) ;
+	//make sure that vnum is atleast 3 or more
+	vnum = max(3, vnum);
+	//use the number of vertices to calculate dtheta per point
+	float dtheta = 2 * PI / vnum;
+	float theta = 0.0f;
+	//loop until theta is completed and add points each turn
+	while (theta < 2 * PI) {
+		//for now points are in polar <r,theta> instead of <x,y>
+		Points.push_back( ofVec3f(rad,theta) );
+		theta += dtheta;
 	}
-	//now Points is populated with ofVec2's having <r,\theta>
-	//make sure to set the cent variable
-	cent = cent_;
-	cent_orig = cent_;
+	//set the D and sig constant
+	D = diff;
+	sig = random;
+	//set the center of the squiggle
+	cent = ofVec3f(x, y, 0.0);
+	//make squiggel remmeber its original radius
+	rad_orig = rad;
 
+
+	poly.clear();
+	//loop over points and readd them to polyline
+	for (int i = 0; i < Points.size(); i++)
+	{
+		//get time since last frame passed
+
+		float dt = ofGetLastFrameTime();
+		//get the point efore and after this one
+		ofVec3f p_last = Points[(i - 1) % Points.size()];
+		ofVec3f p_next = Points[(i + 1) % Points.size()];
+		//get average x coordinate of these points
+		float mu = (p_last.x + p_next.x) / 2;
+		//jiggle point
+		Points[i].x += (D*(mu - Points[i].x)*dt) + (sig*NextGaussian());
+
+		//add to polyline, remmber thus far points are in <r,theta> not <x,y>
+		ofVec3f p = ofVec3f(Points[i].x*cos(Points[i].y), Points[i].x*sin(Points[i].y), 0.0f);
+		//offset by the center
+		poly.addVertex(p + cent);
+	}
+	//close the polyline
+	poly.close();
 }
 
 //deinfe the update function
 void Squiggle::update() {
-	//to start clear the points
-	perim.clear();
-	//add the points to the polyline object while altering them slightly
-	PointsToPerim();
+	//clear the polyline
+	poly.clear();
+	//loop over points and readd them to polyline
+	for (int i = 0; i < Points.size(); i++)
+	{
+		//get time since last frame passed
+
+		float dt = 1.0f/25.0f ;
+		//get the point efore and after this one
+		ofVec3f p_last = Points[ (i-1)% Points.size()];
+		ofVec3f p_next = Points[ (i+1)% Points.size()];
+		//get average x coordinate of these points
+		float mu = (p_last.x + p_next.x) / 2;
+		//jiggle point
+		Points[i].x += (D*(mu - Points[i].x)*dt) + (sig*NextGaussian());
+
+		//add to polyline, remmber thus far points are in <r,theta> not <x,y>
+		ofVec3f p = ofVec3f(Points[i].x*cos(Points[i].y), Points[i].x*sin(Points[i].y), 0.0f);
+		//offset by the center
+		poly.addVertex(p+cent);
+	}
 	//close the polyline
-	perim.close();
+	poly.close();
 }
 
 //define the draw function
 void Squiggle::draw() {
 	//draw the polyline
-	perim.draw();
+	ofSetColor(255, 255, 255, 255.0);
+	poly.draw();
 }
+
 
 float Squiggle::NextGaussian()
 {
@@ -48,28 +98,4 @@ float Squiggle::NextGaussian()
 	std::mt19937 mt(rd());
 	std::normal_distribution<float> distribution(0.0f, 1.0f);
 	return distribution(mt);
-}
-
-//function to send points to perim and add the AR(1) noise
-void Squiggle::PointsToPerim() {
-	//add the points to the polyline object
-	for (int i = 0; i < Points.size(); i++)
-	{
-		//get this point and 4 points next to it
-		ofVec2f vi = Points[i];
-		ofVec2f v_m1 = Points[(i - 1) % Points.size()];
-		ofVec2f v_m2 = Points[(i - 2) % Points.size()];
-		ofVec2f v_p1 = Points[(i + 1) % Points.size()];
-		ofVec2f v_p2 = Points[(i + 2) % Points.size()];
-		//get average r as the average of the 4 points next to this point
-		//float r_mu = (v_m1.x + v_m2.x + v_p1.x + v_p2.x) / 4;
-		float r_mu = (v_m1.x  + v_p1.x ) / 2;
-		//here is kind of a pseudo ornstein-uhrbek process that updates the radius
-		Points[i].x += ((r_mu - vi.x)*1.3) + (1.25*NextGaussian());
-		//the cool thing here is that this random process tends to stay around the mean
-		//in this case a point on average traverses to the average radius of the points around it
-		//this gives the effect of a point wigling randomly and the other points wiggle in response
-		//now add to the perim in <x,y> form and offset by the cent
-		perim.addVertex(ofVec3f(Points[i].x*cos(Points[i].y), Points[i].x*sin(Points[i].y), 0.0f) + cent);
-	}
 }

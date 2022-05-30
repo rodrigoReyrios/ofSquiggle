@@ -1,7 +1,9 @@
 #pragma once
 
 #include "ofMain.h"
+#include "Squiggle.h"
 #include "MultiSquig.h"
+#include "ofxGui.h"
 class ofApp : public ofBaseApp{
 
 	public:
@@ -20,19 +22,38 @@ class ofApp : public ofBaseApp{
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
-		//declare window size as global variable
-		float windowx;
-		float windowy;
-		//also declare the cell size and number of cells
-		float ell;
-		int celli_x;
-		int celli_y;
-		//a temporary vector to store vectors of points
-		vector<vector<ofVec3f>> wholepaths;
-		//make a vector of Polylines that eventualy get drawn
-		vector<ofPolyline> polys;
-		//make a vector of MultiSquigs
-		vector<MultiSquig> MS;
-		vector<ofVec3f> reformat(vector<ofVec3f>, float);
+
+		//ofx paramater options
+		bool hidepanel;
+		ofxFloatSlider radius_slider;
+		ofxIntSlider res;
+		ofxFloatSlider var;
+		ofxFloatSlider theta;
+		ofxFloatSlider spacing;
+		ofxPanel gui;
+
+		//a multisquig to contain all the squiggles
+		MultiSquig MS;
+
+		//booleans for mouse options
+		bool isDeleting;
+
+		//integer to keep track of frame number
+		int fnum;
+
+		//boolean for saving frames
+		bool recording;
+
+		//boolean for saving temp path
+		ofPolyline temp_path;
+
+		//boolean for pausing updates
+		ofxToggle pause;
+
+		//boolean for radius scaling
+		ofxToggle rfac2;
+
+		//temp squiggle to show current squiggle params
+		Squiggle temp_S;
 };
 
